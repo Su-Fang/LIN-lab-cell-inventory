@@ -1,158 +1,160 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 # 1. 網頁基本配置
-st.set_page_config(page_title="Lab Cell Hub Pro", layout="wide")
+st.set_page_config(page_title="Lin-lab Cell Hub", layout="wide")
 
-# ========== CSS 終極美容區塊 (連索引一起消滅版) ==========
+# 2. 逃生艙狀態設定
+if 'print_key' not in st.session_state:
+    st.session_state['print_key'] = False
+
+def deactivate_print_mode():
+    st.session_state["print_key"] = False
+
+# 3. 宇宙無敵強 CSS 優化區
 def inject_custom_css():
     st.markdown("""
         <style>
-        /* 1. Metric 大數字指標 */
-        [data-testid="stMetricValue"] > div { 
-            font-size: 26px !important; 
-            font-weight: 700 !important; 
-            color: #1f77b4; 
-        }
+        /* 全域指標字體縮小 */
+        [data-testid="stMetricValue"] { font-size: 26px !important; font-weight: 700 !important; color: #1f77b4 !important; }
         
-        /* 2. 針對 st.table 的強力黑化與加大 */
-        .stTable td {
-            font-size: 20px !important; 
-            font-weight: 700 !important;
-            color: #000000 !important;
-            text-align: center !important; /* 【核心修正】：內容置中 */
+        /* 表格黑大粗 (去索引版) */
+        .stTable td, .stTable th {
+            font-size: 20px !important; font-weight: 700 !important;
+            color: #000000 !important; text-align: center !important;
         }
-        .stTable th {
-            font-size: 20px !important;
-            font-weight: 800 !important;
-            color: #000000 !important;
-            background-color: #f0f2f6 !important;
-            text-align: center !important; /* 【核心修正】：表頭置中 */
-        }
-
-        /* 【核心修正】：強制隱藏 st.table 的第一欄 (Index) */
-        /* 無論它怎麼跑出來，我們都叫它不准顯示 */
         div[data-testid="stTable"] th:first-child, 
-        div[data-testid="stTable"] td:first-child {
-            display: none !important;
-        }
+        div[data-testid="stTable"] td:first-child { display: none !important; }
         
-        /* 3. 調整章節標題 */
-        h3 { font-size: 26px !important; font-weight: 800 !important; color: #000000 !important; }
+        /* 網格文字優化 */
+        .stAlert p, .stAlert b { font-size: 11pt !important; line-height: 1.2 !important; }
         </style>
     """, unsafe_allow_html=True)
 
 inject_custom_css()
-# ================================================
 
+# 4. 讀取最新 CSV 資料 (請務必確認網址正確)
+sheet_url = "https://docs.google.com/spreadsheets/d/1BoE87REWmgNJ4aqeYHj271fw1G-yG69oYUPZRQDypCg/export?format=csv"
+df = pd.read_csv(sheet_url)
 
-# --- 請確認您的 Google Sheets 分享網址 ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1BoE87REWmgNJ4aqeYHj271fw1G-yG69oYUPZRQDypCg/edit?usp=drive_link" 
+# --- 側邊欄：控制中心 ---
+st.sidebar.title("🧬 Lin-lab Cell Hub Pro")
+print_mode = st.sidebar.checkbox("🖨️ 啟動列印模式", key="print_key")
 
-# 2. 建立連線與讀取資料
-conn = st.connection("gsheets", type=GSheetsConnection)
+with st.sidebar.expander("📖 系統操作規範", expanded=False):
+    st.markdown("""
+    * **入庫**：輸入 Cell_Name 並將 **Status 設為 1**。
+    * **出庫**：清空 Cell_Name 並將 **Status 設為 0**。
+    * **列印**：啟動模式後，按 Cmd/Ctrl+P，選 **Portrait (直向)** 並縮放至 **50%**。
+    """)
 
-@st.cache_data(ttl=10)
-def load_data():
-    data = conn.read(spreadsheet=SHEET_URL)
-    data.columns = [str(c).strip() for c in data.columns]
-    data = data.rename(columns={'Box#': 'Box_Number', 'Box Number': 'Box_Number', '盒號': 'Box_Number'})
+st.sidebar.divider()
+search_query = st.sidebar.text_input("🔍 搜尋細胞名稱...", "")
+
+# 雙桶導航邏輯
+selected_tank = st.sidebar.selectbox("🧊 選擇液態氮桶", ["Tank 1", "Tank 2"])
+tank_df = df[df['Tank'] == selected_tank]
+selected_rack = st.sidebar.selectbox("📏 選擇鐵架 (Rack)", sorted(tank_df['Rack'].unique()))
+rack_df = tank_df[tank_df['Rack'] == selected_rack]
+# 使用 Box_ID 欄位進行導航
+selected_box_id = st.sidebar.selectbox("📦 選擇盒子 (Box ID)", sorted(rack_df['Box_ID'].unique()))
+
+st.sidebar.divider()
+st.sidebar.link_button("🔗 開啟原始試算表", "https://docs.google.com/spreadsheets/d/1BoE87REWmgNJ4aqeYHj271fw1G-yG69oYUPZRQDypCg/edit")
+
+# --- 主畫面：數據統計與列印模式 ---
+if print_mode:
+    # 列印模式專屬導航與 CSS
+    st.markdown('<div class="no-print">', unsafe_allow_html=True)
+    if st.button("⬅️ 返回網頁模式", on_click=deactivate_print_mode):
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    if 'Tank' in data.columns:
-        data = data.dropna(subset=['Tank'])
-        data = data[data['Tank'].astype(str).str.contains('Tank', na=False)]
+    st.markdown("""
+        <style>
+        [data-testid="stSidebar"], header, footer { display: none !important; }
+        @media print {
+            .no-print, button { display: none !important; }
+            .stAlert, .stAlert p, .stAlert b { color: black !important; } 
+            body { -webkit-print-color-adjust: exact !important; }
+        }
+        .main .block-container { padding: 0.5rem !important; }
+        [data-testid="column"] { width: 19% !important; flex: 1 1 19% !important; min-width: 19% !important; padding: 2px !important; }
+        .stAlert { padding: 5px !important; min-height: 80px !important; border: 1px solid #ccc !important; }
+        </style>
+    """, unsafe_allow_html=True)
+
+# 儀表板：即時動態統計 (列印模式下隱藏)
+if not print_mode:
+    st.markdown(f"### 📊 {selected_tank} 庫存概況")
+    tank_total = len(tank_df)
+    tank_occupied = (tank_df['Status'] == 1).sum()
+    tank_empty = tank_total - tank_occupied
     
-    for col in ['Position', 'Status', 'Box_Number']:
-        if col in data.columns:
-            data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
-    return data
+    m1, m2, m3 = st.columns(3)
+    m1.metric("總容量", f"{tank_total} 支")
+    m2.metric("在庫支數", f"{tank_occupied} 支")
+    m3.metric("使用率", f"{(tank_occupied/tank_total)*100:.1f} %")
+    st.divider()
 
-try:
-    df = load_data()
+# --- 主畫面：5x5 網格顯示 ---
+if search_query:
+    search_results = df[df['Cell_Name'].str.contains(search_query, case=False, na=False)]
+    st.subheader(f"🔎 搜尋結果 ({len(search_results)} 筆)")
+    st.table(search_results[['Tank', 'Rack', 'Box_ID', 'Position', 'Cell_Name', 'Date']])
+else:
+    # 取得當前盒子資料
+    box_data = rack_df[rack_df['Box_ID'] == selected_box_id].sort_values('Position')
+    box_empty_count = (box_data['Status'] == 0).sum()
+    
+    st.subheader(f"📍 {selected_tank} - {selected_rack} - {selected_box_id} (即時空位: {box_empty_count}/25)")
 
-    # --- 標題與連結 ---
-    st.title("🧬 R2-1211 細胞凍管管理系統 📗")
-    st.markdown(f"📊 **即時數據來源：** [Google Sheets 雲端主表]({SHEET_URL})")
-    st.markdown("---")
+    # 繪製 5x5 網格
+    for row in range(5):
+        cols = st.columns(5)
+        for col in range(5):
+            pos = row * 5 + col + 1
+            try:
+                cell_info = box_data[box_data['Position'] == pos].iloc[0]
+                d_name = str(cell_info['Cell_Name'])
+                if len(d_name) > 15: d_name = d_name[:13] + ".."
+                
+                with cols[col]:
+                    if cell_info['Status'] == 1:
+                        st.success(f"**{pos}**\n{d_name}\n{cell_info['Date']}")
+                    else:
+                        st.info(f"**{pos}**\n(Empty)")
+            except IndexError:
+                with cols[col]: st.empty()
 
-    menu = st.sidebar.radio("功能導航", ["🔍 全庫搜尋", "📦 5x5 盒子平面圖", "📊 庫存概況"])
+# 頁尾排行榜 (分桶顯示建議存放位置)
+if not print_mode:
+    st.divider()
+    st.subheader("💡 建議存放位置 (空位最多盒子)")
+    
+    col_rank1, col_rank2 = st.columns(2)
+    
+    def get_top_boxes(tank_name):
+        # 篩選特定桶且 Status 為 0
+        tank_rank = df[(df['Tank'] == tank_name) & (df['Status'] == 0)].groupby(['Rack', 'Box_ID']).size().reset_index(name='Empty_Count')
+        # 排序並取前 5
+        top = tank_rank.sort_values('Empty_Count', ascending=False).head(5)
+        if not top.empty:
+            top.columns = ['鐵架', '盒子ID', '剩餘空位']
+        return top
 
-    if menu == "🔍 全庫搜尋":
-        st.subheader("🔍 快速檢索 (全庫)")
-        search_query = st.text_input("輸入關鍵字 (如: 細胞名、ID)")
-        if search_query:
-            mask = df.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
-            st.dataframe(df[mask], use_container_width=True, hide_index=True)
-
-    elif menu == "📦 5x5 盒子平面圖":
-        st.subheader("📦 實體盒子佈局檢視")
-        c1, c2, c3 = st.columns(3)
-        with c1: tank = st.selectbox("1. 選擇桶號", sorted(df['Tank'].unique()))
-        with c2: rack = st.selectbox("2. 選擇鐵架", sorted(df[df['Tank']==tank]['Rack'].unique()))
-        with c3:
-            temp_df = df[(df['Tank']==tank) & (df['Rack']==rack)]
-            box_num = st.selectbox("3. 選擇盒子層數", sorted(temp_df['Box_Number'].unique()))
-
-        box_df = temp_df[temp_df['Box_Number'] == box_num].sort_values('Position')
-        st.info(f"📍 目前位置：{tank} > {rack} > 第 {int(box_num)} 層")
-        
-        for r in range(5):
-            cols = st.columns(5)
-            for c in range(5):
-                pos = r * 5 + c + 1
-                target = box_df[box_df['Position'] == pos]
-                with cols[c]:
-                    if not target.empty:
-                        item = target.iloc[0]
-                        if int(item['Status']) == 1:
-                            st.success(f"**{pos:02d}**\n\n{item['Cell_Name']}")
-                        else:
-                            st.markdown(f'<div style="background-color:#f0f2f6;padding:10px;border-radius:5px;height:80px;text-align:center;color:#5f6368;border:1px solid #ddd;">{pos:02d}<br><small>(Empty)</small></div>', unsafe_allow_html=True)
-
-    elif menu == "📊 庫存概況":
-        # st.subheader("📊 實驗室數據統計") # 把這行拿掉，讓畫面更乾淨
-
-        # 定義計算函數
-        def get_stats(target_df):
-            stocked = len(target_df[target_df['Status'] == 1])
-            empty = len(target_df[target_df['Status'] == 0])
-            rate = (stocked / len(target_df)) * 100 if len(target_df) > 0 else 0
-            return stocked, empty, rate
-
-        # 1. 雙桶指標對照
-        st.markdown("### 📊 實驗室數據統計")
-        col_t1, col_t2 = st.columns(2)
-        
-        with col_t1:
-            st.markdown("#### 🧊 Tank 1 現況")
-            df_t1 = df[df['Tank'] == 'Tank 1']
-            s1, e1, r1 = get_stats(df_t1)
-            st.metric("在庫支數", f"{s1} 支")
-            st.metric("剩餘空位", f"{e1} 支")
-            st.metric("使用率", f"{r1:.1f} %")
+    with col_rank1:
+        st.markdown("#### 🧊 Tank 1")
+        top_t1 = get_top_boxes("Tank 1")
+        if not top_t1.empty:
+            st.table(top_t1)
+        else:
+            st.write("Tank 1 暫無可用空位。")
             
-        with col_t2:
-            st.markdown("#### 🧊 Tank 2 現況")
-            df_t2 = df[df['Tank'] == 'Tank 2']
-            s2, e2, r2 = get_stats(df_t2)
-            st.metric("在庫支數", f"{s2} 支")
-            st.metric("剩餘空位", f"{e2} 支")
-            st.metric("使用率", f"{r2:.1f} %")
-
-        st.write("---")
-        
-        # 2. Tank 1 補位建議 (表格變大變黑了!)
-        st.markdown("### 🈳 Tank 1 優先補位建議 (前 5 名最空盒子)")
-        ranking = df_t1[df_t1['Status'] == 0].groupby(['Rack', 'Box_Number', 'Box_ID']).size().reset_index(name='空位數量')
-        top_5_t1 = ranking.sort_values(by='空位數量', ascending=False).head(5)
-        
-        if not top_5_t1.empty:
-            top_5_t1.columns = ['鐵架', '層數', '盒子標籤', '空位數量']
-            #【關鍵修改】：將 st.dataframe 改成 st.table
-            # 這樣您的 CSS 就能 100% 覆蓋並黑化內容了！
-            st.table(top_5_t1)
-
-
-except Exception as e:
-    st.error(f"⚠️ 發生錯誤：{e}")
+    with col_rank2:
+        st.markdown("#### 🧊 Tank 2")
+        top_t2 = get_top_boxes("Tank 2")
+        if not top_t2.empty:
+            st.table(top_t2)
+        else:
+            st.write("Tank 2 暫無可用空位。")

@@ -12,24 +12,20 @@ def deactivate_print_mode():
     # 使用 callback 修改狀態，這會在下一次渲染開始前執行，避免報錯
     st.session_state["print_key"] = False
 
-# 3. 宇宙無敵強 CSS 優化區
+# 3. 全域 CSS (修正：移除全域隱藏 header)
 def inject_custom_css():
     st.markdown("""
         <style>
-        /* 網頁顯示優化 */
         [data-testid="stMetricValue"] { font-size: 26px !important; font-weight: 700 !important; color: #1f77b4 !important; }
         .stTable td, .stTable th {
             font-size: 20px !important; font-weight: 700 !important;
             color: #000000 !important; text-align: center !important;
         }
-        div[data-testid="stTable"] th:first-child, 
-        div[data-testid="stTable"] td:first-child { display: none !important; }
-        
-        /* 網格大字體 (18pt) */
+        div[data-testid="stTable"] th:first-child, div[data-testid="stTable"] td:first-child { display: none !important; }
         .stAlert p, .stAlert b { font-size: 18pt !important; line-height: 1.5 !important; }
-
-        /* 隱藏預設頁首頁尾 */
-        header, footer { visibility: hidden !important; }
+        
+        /* 僅隱藏底部 footer，保留頂部 header 以便手機操作 */
+        footer { visibility: hidden !important; }
         </style>
     """, unsafe_allow_html=True)
 

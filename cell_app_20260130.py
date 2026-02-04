@@ -27,7 +27,7 @@ def inject_custom_css():
         div[data-testid="stTable"] td:first-child { display: none !important; }
         
         /* 網格文字優化 */
-        .stAlert p, .stAlert b { font-size: 11pt !important; line-height: 1.2 !important; }
+        .stAlert p, .stAlert b { font-size: 18pt !important; line-height: 1.5 !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -117,7 +117,7 @@ else:
             try:
                 cell_info = box_data[box_data['Position'] == pos].iloc[0]
                 d_name = str(cell_info['Cell_Name'])
-                if len(d_name) > 15: d_name = d_name[:13] + ".."
+                if len(d_name) > 50: d_name = d_name[:13] + ".."
                 
                 with cols[col]:
                     if cell_info['Status'] == 1:
